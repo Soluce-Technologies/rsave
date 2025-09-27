@@ -21,7 +21,7 @@ cargo install rsave
 1. Clone the repository:
    ```bash
    git clone https://github.com/Soluce-Technologies/rsave.git
-   cd deepwash
+   cd rsave
    ```
 
 2. Build and install:

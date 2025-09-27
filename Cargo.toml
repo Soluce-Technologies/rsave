@@ -2,6 +2,15 @@
 name = "rsave"
 version = "0.1.0"
 edition = "2024"
+description = """A Command Line Interface to to save files on object storage"""
+authors = ["Charles Gauthereau <charles.gauthereau@soluce-technologies.com>"]
+license = "MIT"
+keywords = ["s3", "linux", "macos"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+repository = "https://github.com/Soluce-Technologies/rsave.git"
+homepage = "https://github.com/Soluce-Technologies/rsave"
+
 
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
