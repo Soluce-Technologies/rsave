@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
-use std::{collections::HashMap, path::PathBuf};
 use keyring::Entry;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct S3DestinationMeta {
@@ -28,7 +28,7 @@ impl RsaveConfig {
             RsaveConfig::default()
         }
     }
-
+    #[allow(dead_code)]
     pub fn save(&self) {
         let data = toml::to_string_pretty(self).expect("Failed to serialize config");
         let path = Self::config_path();
@@ -38,7 +38,7 @@ impl RsaveConfig {
         }
         std::fs::write(path, data).expect("Failed to write config");
     }
-
+    #[allow(dead_code)]
     pub fn add_destination_secure(
         &mut self,
         name: &str,
@@ -71,6 +71,60 @@ impl RsaveConfig {
         println!("Stored credentials successfully");
     }
 
+    pub fn delete_destination_secure(&mut self, name: &str) {
+
+        self.destinations.remove(name);
+        self.save();
+
+        let _ =
+            Entry::new("rsave", &format!("{name}_access_key")).and_then(|e| e.delete_credential());
+
+        let _ =
+            Entry::new("rsave", &format!("{name}_secret_key")).and_then(|e| e.delete_credential());
+
+        println!(
+            "Destination '{}' and its credentials have been deleted.",
+            name
+        );
+    }
+
+    pub fn edit_destination_secure(
+        &mut self,
+        name: &str,
+        bucket: Option<&str>,
+        region: Option<&str>,
+        access_key: Option<&str>,
+        secret_key: Option<&str>,
+    ) {
+        if let Some(dest) = self.destinations.get_mut(name) {
+            if let Some(b) = bucket {
+                dest.bucket = b.to_string();
+            }
+            if let Some(r) = region {
+                dest.region = r.to_string();
+            }
+            self.save();
+
+            if let Some(access) = access_key {
+                let access_key_entry = Entry::new("rsave", &format!("{name}_access_key"))
+                    .expect("Failed to create keyring entry for access key");
+                access_key_entry
+                    .set_password(access)
+                    .expect("Failed to store access key");
+            }
+            if let Some(secret) = secret_key {
+                let secret_key_entry = Entry::new("rsave", &format!("{name}_secret_key"))
+                    .expect("Failed to create keyring entry for secret key");
+                secret_key_entry
+                    .set_password(secret)
+                    .expect("Failed to store secret key");
+            }
+        } else {
+            println!("Destination '{}' not found.", name);
+        }
+    }
+
+    #[allow(dead_code)]
     pub fn get_credentials(&self, name: &str) -> Option<(String, String)> {
         let access_key_entry = match Entry::new("rsave", &format!("{name}_access_key")) {
             Ok(entry) => entry,
@@ -104,6 +158,7 @@ impl RsaveConfig {
         Some((access_key, secret_key))
     }
 
+    #[allow(dead_code)]
     pub fn list_destinations_secure(&self) {
         if self.destinations.is_empty() {
             println!("No S3 destinations found.");
@@ -112,6 +167,8 @@ impl RsaveConfig {
 
         println!("Configured S3 destinations:");
         for (name, meta) in &self.destinations {
+            let credentials = self.get_credentials(name);
+            println!("{:#?}", credentials);
             let has_credentials = self.get_credentials(name).is_some();
 
             println!(
@@ -119,7 +176,11 @@ impl RsaveConfig {
                 name,
                 meta.bucket,
                 meta.region,
-                if has_credentials { "✔️" } else { "❌ (missing)" }
+                if has_credentials {
+                    "✔️"
+                } else {
+                    "❌ (missing)"
+                }
             );
         }
     }

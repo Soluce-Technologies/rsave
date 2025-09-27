@@ -7,7 +7,10 @@ edition = "2024"
 serde = { version = "1.0.219", features = ["derive"] }
 dirs = "6.0.0"
 toml = "0.9.2"
-keyring = { version = "3.6.2", features = ["linux-native", "apple-native", "windows-native"] }
+#keyring = { version = "3.6.2", features = ["linux-native", "apple-native", "windows-native"] }
+keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "linux-native-sync-persistent", "sync-secret-service", "crypto-openssl", "vendored"] }
+
 uuid = { version = "1.17.0", features = ["v4"] }
 chrono = "0.4.41"
 clap = { version = "4.5.41", features = ["derive"] }
+dialoguer = "0.11"

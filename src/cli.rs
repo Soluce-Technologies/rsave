@@ -24,11 +24,7 @@ pub enum Commands {
         add: bool,
     },
     /// Backup dir of files.
-    Backup {
-        /// Specify a name of the backup.
-        #[arg(short = 'n', long = "name")]
-        name: String,
-    },
+    Backup,
     /// Show backup history (done/failed)
     History,
     /// Show in-progress backups tasks.
