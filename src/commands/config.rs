@@ -1,7 +1,50 @@
 use crate::config::{RsaveConfig, S3DestinationMeta};
+use crate::utils;
 use dialoguer::{Confirm, Input, Password, Select, theme::ColorfulTheme};
 
-pub fn handle_choice_config() {
+pub fn handle_config() -> RsaveConfig {
+    let mut cfg = RsaveConfig::load();
+
+    // try loading session
+    let session_password = utils::session::load_session();
+
+    let password = if cfg.meta.check.is_empty() {
+        // first-time setup
+        let password1: String = Password::new()
+            .with_prompt("Set master password")
+            .interact()
+            .unwrap();
+        let password2: String = Password::new()
+            .with_prompt("Confirm master password")
+            .interact()
+            .unwrap();
+        if password1 != password2 {
+            eprintln!("❌ Passwords do not match");
+            std::process::exit(1);
+        }
+        cfg = RsaveConfig::init(&password1);
+        utils::session::save_session(&password1);
+        password1
+    } else if let Some(pass) = session_password {
+        pass
+    } else {
+        // prompt
+        let password: String = Password::new()
+            .with_prompt("Enter master password")
+            .interact()
+            .unwrap();
+        if !cfg.verify_password(&password) {
+            eprintln!("❌ Wrong password");
+            std::process::exit(1);
+        }
+        utils::session::save_session(&password);
+        password
+    };
+
+    cfg.with_password(password)
+}
+
+pub fn handle_choice_config(cfg: &mut RsaveConfig) {
     let action = Select::with_theme(&ColorfulTheme::default())
         .with_prompt("What do you want to do?")
         .items(&["Add", "List", "Cancel"])
@@ -10,16 +53,15 @@ pub fn handle_choice_config() {
         .unwrap();
 
     match action {
-        0 => handle_add_config(),
-        1 => handle_list_configs(),
+        0 => handle_add_config(cfg),
+        1 => handle_list_configs(cfg),
         _ => {
             println!("Action cancelled.")
         }
     }
 }
 
-pub fn handle_list_configs() {
-    let config = RsaveConfig::load();
+pub fn handle_list_configs(config: &mut RsaveConfig) {
     // println!("{:#?}", config);
     if config.destinations.is_empty() {
         println!("No object storage destinations configured.");
@@ -40,6 +82,7 @@ pub fn handle_list_configs() {
             println!("Action cancelled.");
             return;
         }
+
         let selected = &names[index];
         let action = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("What do you want to do?")
@@ -50,8 +93,9 @@ pub fn handle_list_configs() {
 
         match action {
             0 => {
-                let current = &config.destinations[selected];
-                handle_edit_config(current, selected);
+                let current = config.destinations[selected].clone(); // clone instead of borrow
+
+                handle_edit_config(config, &current, selected);
             }
             1 => {
                 if Confirm::new()
@@ -59,7 +103,7 @@ pub fn handle_list_configs() {
                     .interact()
                     .unwrap()
                 {
-                    handle_delete_config(selected);
+                    handle_delete_config(config, selected);
                 }
             }
             _ => {
@@ -69,12 +113,11 @@ pub fn handle_list_configs() {
     }
 }
 
-pub fn handle_delete_config(selected: &str) {
-    let mut config = RsaveConfig::load();
-    config.delete_destination_secure(selected)
+pub fn handle_delete_config(cfg: &mut RsaveConfig, selected: &str) {
+    cfg.delete_destination_secure(selected);
 }
 
-pub fn handle_add_config() {
+pub fn handle_add_config(cfg: &mut RsaveConfig) {
     let name: String = Input::new()
         .with_prompt("Destination name")
         .interact_text()
@@ -100,11 +143,10 @@ pub fn handle_add_config() {
         .interact()
         .unwrap();
 
-    let mut config = RsaveConfig::load();
-    config.add_destination_secure(&name, &bucket, &region, &access_key, &secret_key);
+    cfg.add_destination_secure(&name, &bucket, &region, &access_key, &secret_key);
 }
 
-pub fn handle_edit_config(current: &S3DestinationMeta, selected: &str) {
+pub fn handle_edit_config(cfg: &mut RsaveConfig, current: &S3DestinationMeta, selected: &str) {
     let bucket: String = Input::new()
         .with_prompt("S3 bucket")
         .with_initial_text(&current.bucket)
@@ -137,8 +179,7 @@ pub fn handle_edit_config(current: &S3DestinationMeta, selected: &str) {
         (None, None)
     };
 
-    let mut config = RsaveConfig::load();
-    config.edit_destination_secure(
+    cfg.edit_destination_secure(
         selected,
         Some(&bucket),
         Some(&region),

@@ -37,3 +37,10 @@ Run `rsave`
 ```bash
 rsave --help
 ```
+
+
+error: linker `cc` not found
+
+sudo apt update
+sudo apt install build-essential
+
